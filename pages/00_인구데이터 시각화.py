@@ -29,10 +29,19 @@ female_columns = [col for col in df_mf.columns if "여_" in col and "세" in col
 ages = [col.split('_')[-1] for col in age_columns]
 ages = ["100+" if "이상" in age else age.replace("세", "") for age in ages]
 
-# 인구 수 추출
-pop_total = df_total.loc[0, age_columns].astype(int)
-pop_male = df_mf.loc[0, male_columns].astype(int)
-pop_female = df_mf.loc[0, female_columns].astype(int)
+# 인구 수 추출 (iloc을 사용하여 확실히 Series 형태로 처리)
+try:
+    pop_total = df_total[age_columns].iloc[0].astype(int)
+    pop_male = df_mf[male_columns].iloc[0].astype(int)
+    pop_female = df_mf[female_columns].iloc[0].astype(int)
+except Exception as e:
+    st.error(f"❌ 인구 데이터를 불러오는 중 오류가 발생했습니다: {e}")
+    st.stop()
+
+# 길이 체크
+if not (len(ages) == len(pop_total) == len(pop_male) == len(pop_female)):
+    st.error("❌ 데이터 열 길이가 일치하지 않습니다. 파일 구조를 확인해 주세요.")
+    st.stop()
 
 # 데이터프레임 구성
 df_plot = pd.DataFrame({
