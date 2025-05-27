@@ -20,22 +20,21 @@ if not os.path.exists(total_path) or not os.path.exists(mf_path):
 df_total = pd.read_csv(total_path, encoding="cp949")
 df_mf = pd.read_csv(mf_path, encoding="cp949")
 
-# 연령 컬럼만 추출
+# 연령 컬럼 추출
 age_columns = [col for col in df_total.columns if "세" in col]
-ages = [col.split('_')[-1].replace("세", "") for col in age_columns]
-ages = ["100+" if "이상" in age else age for age in ages]
-
-# 전체 인구
-pop_total = df_total.loc[0, age_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
-
-# 남녀 데이터
 male_columns = [col for col in df_mf.columns if "남_" in col and "세" in col]
 female_columns = [col for col in df_mf.columns if "여_" in col and "세" in col]
 
+# 정확한 연령 라벨 추출
+ages = [col.split('_')[-1] for col in age_columns]
+ages = ["100+" if "이상" in age else age.replace("세", "") for age in ages]
+
+# 인구 수 전처리
+pop_total = df_total.loc[0, age_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
 pop_male = df_mf.loc[0, male_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
 pop_female = df_mf.loc[0, female_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
 
-# 나이 정수형 정리
+# 데이터프레임 구성
 df_plot = pd.DataFrame({
     "연령": ages,
     "연령 숫자": [int(age.replace("+", "")) for age in ages],
@@ -90,21 +89,4 @@ elif chart_type == "Population Pyramid":
     fig.add_trace(go.Bar(
         y=df_filtered["연령"],
         x=df_filtered["여자"],
-        name="여자",
-        orientation='h',
-        hovertemplate='연령: %{y}<br>여자: %{x}',
-        marker=dict(color='pink', line=dict(width=1, color='deeppink'))
-    ))
-
-    fig.update_layout(
-        title="성별 인구 피라미드",
-        barmode='relative',
-        xaxis=dict(title='인구 수', tickvals=[-100000, -50000, 0, 50000, 100000], ticktext=['10만', '5만', '0', '5만', '10만']),
-        yaxis=dict(title='연령'),
-        template='plotly_white',
-        hovermode='closest'
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# 데이터 다운로드
-st.download_button("⬇️ 필터링된 인구 데이터 다운로드", data=df_filtered.to_csv(index=False), file_name="filtered_population.csv", mime="text/csv")
+        name="여자"
