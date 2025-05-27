@@ -14,25 +14,27 @@ st.title("🌍 글로벌 시가총액 TOP 10 기업 주가 변화 + 맞춤 ETF �
 top10_tickers = {
     "Apple": "AAPL",
     "Microsoft": "MSFT",
-    "Saudi Aramco": "2222.SR",
     "Alphabet": "GOOGL",
     "Amazon": "AMZN",
     "Nvidia": "NVDA",
     "Meta": "META",
     "Berkshire Hathaway": "BRK-B",
     "TSMC": "TSM",
-    "Eli Lilly": "LLY"
+    "Eli Lilly": "LLY",
+    "Visa": "V"
 }
 
 st.header("📈 글로벌 시가총액 TOP10 주가 변화 (최근 1년)")
 start_date = datetime.date.today() - datetime.timedelta(days=365)
 end_date = datetime.date.today()
 
-price_data = yf.download(list(top10_tickers.values()), start=start_date, end=end_date)['Adj Close']
+raw_data = yf.download(list(top10_tickers.values()), start=start_date, end=end_date, group_by='ticker', auto_adjust=True)
+
+# 주가 데이터 구성 (단일 종가 시계열로 변환)
+price_data = pd.DataFrame({name: raw_data[ticker]['Close'] for name, ticker in top10_tickers.items() if ticker in raw_data.columns.levels[0]})
 
 # 주가 변동률 계산
 growth_data = price_data.pct_change().add(1).cumprod().fillna(1)
-growth_data.columns = list(top10_tickers.keys())
 
 fig = px.line(growth_data, title="📊 최근 1년간 주가 수익률 추이 (%)")
 fig.update_layout(yaxis_tickformat='.0%', template="plotly_white")
@@ -63,8 +65,8 @@ for etf in etf_suggestions.get(risk, []):
 # 금 vs ETF 비교 시각화
 # ------------------------
 st.header("📊 금 vs ETF 비교")
-comparison_etfs = ["GLD", "QQQ"]  # 금과 기술주 ETF
-comparison_data = yf.download(comparison_etfs, start=start_date, end=end_date)['Adj Close']
+comparison_etfs = ["GLD", "QQQ"]
+comparison_data = yf.download(comparison_etfs, start=start_date, end=end_date, auto_adjust=True)['Close']
 comparison_growth = comparison_data.pct_change().add(1).cumprod().fillna(1)
 fig2 = px.line(comparison_growth, title="금(GLD) vs 기술주(QQQ) 수익률 비교", labels={"value": "수익률", "Date": "날짜"})
 fig2.update_layout(yaxis_tickformat='.0%', template="plotly_white")
