@@ -1,62 +1,70 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="연령별 인구 시각화", layout="wide")
-st.title("📊 경기도 연령별 전체 인구 (2025년 4월) 시각화")
+st.title("📊 경기도 연령별 인구 시각화 (2025년 4월)")
 
-uploaded_file = st.file_uploader("📁 CSV 파일을 업로드하세요 (예: 연령별인구현황_계.csv)", type="csv")
+# 파일 경로 직접 지정 (사용자가 업로드하지 않아도 되도록)
+total_path = "202504_202504_\uac00\uacfc\uacfc_\uacc4.csv"
+mf_path = "202504_202504_\uac00\uacfc\uacfc_\ub0a8\ub140.csv"
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file, encoding="cp949")
+# 데이터 로딩
+df_total = pd.read_csv(total_path, encoding="cp949")
+df_mf = pd.read_csv(mf_path, encoding="cp949")
 
-    # 연령별 컬럼만 추출
-    age_columns = [col for col in df.columns if "세" in col]
-    population = df.loc[0, age_columns]
+# 연령 컬럼만 추출
+age_columns = [col for col in df_total.columns if "세" in col]
+ages = [col.split('_')[-1].replace("세", "") for col in age_columns]
+ages = ["100+" if "이상" in age else age for age in ages]
 
-    # 연령 텍스트 정리
-    ages = [col.split('_')[-1].replace("세", "") for col in age_columns]
-    ages = ["100+" if "이상" in age else age for age in ages]
+# 전체 인구
+pop_total = df_total.loc[0, age_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
 
-    # 숫자 처리
-    population = population.fillna(0).astype(str).str.replace(",", "").astype(int)
+# 남녀 데이터
+male_columns = [col for col in df_mf.columns if "남_" in col and "세" in col]
+female_columns = [col for col in df_mf.columns if "여_" in col and "세" in col]
 
-    # 시각화용 데이터프레임
-    df_plot = pd.DataFrame({"연령": ages, "인구 수": population})
-    df_plot["연령 숫자"] = df_plot["연령"].str.replace("+", "").astype(int)
+pop_male = df_mf.loc[0, male_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
+pop_female = df_mf.loc[0, female_columns].fillna(0).astype(str).str.replace(",", "").astype(int)
 
-    # 슬라이더로 연령 필터링
-    min_age, max_age = st.slider("🔍 보고 싶은 연령 범위를 선택하세요", 0, 100, (0, 100), step=5)
-    filtered_df = df_plot[(df_plot["연령 숫자"] >= min_age) & (df_plot["연령 숫자"] <= max_age)]
+# 나이 정수형 정리
+df_plot = pd.DataFrame({
+    "연령": ages,
+    "연령 숫자": [int(age.replace("+", "")) for age in ages],
+    "전체": pop_total,
+    "남자": pop_male,
+    "여자": pop_female
+})
 
-    # 시각화 유형 선택
-    chart_type = st.radio("📈 시각화 유형을 선택하세요", ["Bar", "Line", "Area", "Pie"], horizontal=True)
+# 연령 필터
+min_age, max_age = st.slider("🔍 보고 싶은 연령 범위를 선택하세요", 0, 100, (0, 100), step=5)
+df_filtered = df_plot[(df_plot["연령 숫자"] >= min_age) & (df_plot["연령 숫자"] <= max_age)]
 
-    st.subheader("📌 연령별 인구 시각화")
+# 시각화 선택
+chart_type = st.radio("📈 시각화 유형을 선택하세요", ["Bar", "Line", "Population Pyramid"], horizontal=True)
 
-    # 차트 생성
-    if chart_type == "Bar":
-        fig = px.bar(filtered_df, x="연령", y="인구 수", title="연령별 인구 (Bar)", color="인구 수")
-    elif chart_type == "Line":
-        fig = px.line(filtered_df, x="연령", y="인구 수", title="연령별 인구 (Line)", markers=True)
-    elif chart_type == "Area":
-        fig = px.area(filtered_df, x="연령", y="인구 수", title="연령별 인구 (Area)")
-    elif chart_type == "Pie":
-        fig = px.pie(filtered_df, values="인구 수", names="연령", title="연령 구성 비율 (Pie)")
+# 전체 인구 분포
+if chart_type == "Bar":
+    fig = px.bar(df_filtered, x="연령", y="전체", title="전체 인구 (Bar)", color="전체")
+    st.plotly_chart(fig, use_container_width=True)
+elif chart_type == "Line":
+    fig = px.line(df_filtered, x="연령", y="전체", title="전체 인구 (Line)", markers=True)
+    st.plotly_chart(fig, use_container_width=True)
+elif chart_type == "Population Pyramid":
+    fig = go.Figure()
+    fig.add_trace(go.Bar(y=df_filtered["연령"], x=-df_filtered["남자"], name="남자", orientation='h'))
+    fig.add_trace(go.Bar(y=df_filtered["연령"], x=df_filtered["여자"], name="여자", orientation='h'))
 
+    fig.update_layout(
+        title="성별 인구 피라미드",
+        barmode='relative',
+        xaxis=dict(title='인구 수', tickvals=[-100000, -50000, 0, 50000, 100000], ticktext=['10만', '5만', '0', '5만', '10만']),
+        yaxis=dict(title='연령'),
+        template='plotly_white'
+    )
     st.plotly_chart(fig, use_container_width=True)
 
-    # 인사이트 제공용 테이블
-    st.subheader("📋 인구 상위/하위 연령대")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("#### 🔝 상위 5개 연령대")
-        st.dataframe(filtered_df.sort_values("인구 수", ascending=False).head(5), use_container_width=True)
-
-    with col2:
-        st.markdown("#### 🔻 하위 5개 연령대")
-        st.dataframe(filtered_df.sort_values("인구 수").head(5), use_container_width=True)
-
-    # 다운로드 기능
-    st.download_button("⬇️ 현재 데이터 CSV 다운로드", data=filtered_df.to_csv(index=False), file_name="filtered_population.csv", mime="text/csv")
+# 데이터 다운로드
+st.download_button("⬇️ 필터링된 인구 데이터 다운로드", data=df_filtered.to_csv(index=False), file_name="filtered_population.csv", mime="text/csv")
